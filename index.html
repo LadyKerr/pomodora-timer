@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pomodoro Timer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+        }
+
+        .container {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 3rem 2rem;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            min-width: 400px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            font-weight: 300;
+            letter-spacing: 2px;
+        }
+
+        .timer-display {
+            font-size: 6rem;
+            font-weight: 700;
+            margin: 2rem 0;
+            font-family: 'Courier New', monospace;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .session-info {
+            font-size: 1.2rem;
+            margin-bottom: 2rem;
+            opacity: 0.9;
+        }
+
+        .controls {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin-bottom: 2rem;
+        }
+
+        button {
+            padding: 1rem 2rem;
+            font-size: 1rem;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px 0 rgba(0, 0, 0, 0.2);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .start-btn {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .pause-btn {
+            background: #FF9800;
+            color: white;
+        }
+
+        .reset-btn {
+            background: #f44336;
+            color: white;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            opacity: 0.8;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .work-session {
+            color: #4CAF50;
+        }
+
+        .break-session {
+            color: #FF9800;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                min-width: 90%;
+                padding: 2rem 1rem;
+            }
+
+            h1 {
+                font-size: 2rem;
+            }
+
+            .timer-display {
+                font-size: 4rem;
+            }
+
+            .controls {
+                flex-direction: column;
+            }
+
+            button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Pomodoro Timer</h1>
+        <div class="session-info" id="sessionInfo">Work Session</div>
+        <div class="timer-display" id="timerDisplay">25:00</div>
+        <div class="controls">
+            <button class="start-btn" id="startBtn">Start</button>
+            <button class="pause-btn" id="pauseBtn" style="display: none;">Pause</button>
+            <button class="reset-btn" id="resetBtn">Reset</button>
+        </div>
+        <div class="stats">
+            <div class="stat-item">
+                <div class="stat-label">Pomodoros</div>
+                <div class="stat-value" id="pomodoroCount">0</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">Total Time</div>
+                <div class="stat-value" id="totalTime">0m</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class PomodoroTimer {
+            constructor() {
+                // Timer settings (in minutes)
+                this.WORK_TIME = 25;
+                this.SHORT_BREAK = 5;
+                this.LONG_BREAK = 15;
+                this.POMODOROS_UNTIL_LONG_BREAK = 4;
+
+                // State
+                this.timeLeft = this.WORK_TIME * 60; // in seconds
+                this.isRunning = false;
+                this.isWorkSession = true;
+                this.pomodoroCount = 0;
+                this.totalTimeWorked = 0; // in seconds
+                this.interval = null;
+
+                // DOM elements
+                this.timerDisplay = document.getElementById('timerDisplay');
+                this.sessionInfo = document.getElementById('sessionInfo');
+                this.startBtn = document.getElementById('startBtn');
+                this.pauseBtn = document.getElementById('pauseBtn');
+                this.resetBtn = document.getElementById('resetBtn');
+                this.pomodoroCountDisplay = document.getElementById('pomodoroCount');
+                this.totalTimeDisplay = document.getElementById('totalTime');
+
+                // Bind event listeners
+                this.startBtn.addEventListener('click', () => this.start());
+                this.pauseBtn.addEventListener('click', () => this.pause());
+                this.resetBtn.addEventListener('click', () => this.reset());
+
+                // Initialize display
+                this.updateDisplay();
+            }
+
+            start() {
+                if (!this.isRunning) {
+                    this.isRunning = true;
+                    this.startBtn.style.display = 'none';
+                    this.pauseBtn.style.display = 'inline-block';
+                    
+                    this.interval = setInterval(() => {
+                        this.tick();
+                    }, 1000);
+                }
+            }
+
+            pause() {
+                if (this.isRunning) {
+                    this.isRunning = false;
+                    this.startBtn.style.display = 'inline-block';
+                    this.pauseBtn.style.display = 'none';
+                    clearInterval(this.interval);
+                }
+            }
+
+            reset() {
+                this.pause();
+                this.isWorkSession = true;
+                this.timeLeft = this.WORK_TIME * 60;
+                this.updateDisplay();
+                this.updateSessionInfo();
+            }
+
+            tick() {
+                this.timeLeft--;
+                
+                if (this.isWorkSession) {
+                    this.totalTimeWorked++;
+                }
+
+                if (this.timeLeft <= 0) {
+                    this.completeSession();
+                }
+
+                this.updateDisplay();
+            }
+
+            completeSession() {
+                // Play notification sound (using Web Audio API)
+                this.playNotificationSound();
+
+                if (this.isWorkSession) {
+                    this.pomodoroCount++;
+                    this.updateStats();
+
+                    // Determine break type
+                    if (this.pomodoroCount % this.POMODOROS_UNTIL_LONG_BREAK === 0) {
+                        this.timeLeft = this.LONG_BREAK * 60;
+                        alert('Great work! Time for a long break (15 minutes)!');
+                    } else {
+                        this.timeLeft = this.SHORT_BREAK * 60;
+                        alert('Well done! Time for a short break (5 minutes)!');
+                    }
+                    this.isWorkSession = false;
+                } else {
+                    this.timeLeft = this.WORK_TIME * 60;
+                    this.isWorkSession = true;
+                    alert('Break is over! Ready for another work session?');
+                }
+
+                this.updateSessionInfo();
+                this.updateDisplay();
+            }
+
+            playNotificationSound() {
+                try {
+                    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    const oscillator = audioContext.createOscillator();
+                    const gainNode = audioContext.createGain();
+
+                    oscillator.connect(gainNode);
+                    gainNode.connect(audioContext.destination);
+
+                    oscillator.frequency.value = 800;
+                    oscillator.type = 'sine';
+
+                    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+
+                    oscillator.start(audioContext.currentTime);
+                    oscillator.stop(audioContext.currentTime + 0.5);
+                } catch (e) {
+                    console.log('Audio notification not supported');
+                }
+            }
+
+            updateDisplay() {
+                const minutes = Math.floor(this.timeLeft / 60);
+                const seconds = this.timeLeft % 60;
+                this.timerDisplay.textContent = 
+                    `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }
+
+            updateSessionInfo() {
+                if (this.isWorkSession) {
+                    this.sessionInfo.textContent = 'Work Session';
+                    this.sessionInfo.className = 'session-info work-session';
+                } else {
+                    const isLongBreak = this.pomodoroCount % this.POMODOROS_UNTIL_LONG_BREAK === 0;
+                    this.sessionInfo.textContent = isLongBreak ? 'Long Break' : 'Short Break';
+                    this.sessionInfo.className = 'session-info break-session';
+                }
+            }
+
+            updateStats() {
+                this.pomodoroCountDisplay.textContent = this.pomodoroCount;
+                const totalMinutes = Math.floor(this.totalTimeWorked / 60);
+                this.totalTimeDisplay.textContent = `${totalMinutes}m`;
+            }
+        }
+
+        // Initialize the timer when the page loads
+        const timer = new PomodoroTimer();
+    </script>
+</body>
+</html>
