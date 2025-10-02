@@ -234,8 +234,11 @@
                 this.pause();
                 this.isWorkSession = true;
                 this.timeLeft = this.WORK_TIME * 60;
+                this.pomodoroCount = 0;
+                this.totalTimeWorked = 0;
                 this.updateDisplay();
                 this.updateSessionInfo();
+                this.updateStats();
             }
 
             tick() {
@@ -253,6 +256,9 @@
             }
 
             completeSession() {
+                // Pause the timer first
+                this.pause();
+                
                 // Play notification sound (using Web Audio API)
                 this.playNotificationSound();
 
